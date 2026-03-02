@@ -1,4 +1,4 @@
-export type GamePhase = 'lobby' | 'answering' | 'reveal' | 'voting' | 'vote-results' | 'finished';
+export type GamePhase = 'lobby' | 'answering' | 'reveal' | 'vote-results' | 'finished';
 
 export interface Player {
   id: string;
@@ -26,6 +26,9 @@ export interface Room {
   rounds: RoundData[];
   apiKey: string;
   hostId: string;
+  language: string;
+  topic: string;
+  pastQuestions: string[]; // track questions to avoid repeats
 }
 
 // Data sent to clients (serializable)

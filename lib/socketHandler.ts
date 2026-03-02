@@ -8,9 +8,9 @@ export function registerSocketHandlers(io: Server) {
         console.log(`[Socket] Connected: ${socket.id}`);
 
         // --- CREATE ROOM ---
-        socket.on('create-room', async (data: { hostName: string; apiKey: string; totalRounds: number }, callback) => {
+        socket.on('create-room', async (data: { hostName: string; apiKey: string; totalRounds: number; language: string; topic: string }, callback) => {
             try {
-                const { room, player } = gameManager.createRoom(data.hostName, data.apiKey, data.totalRounds, socket.id);
+                const { room, player } = gameManager.createRoom(data.hostName, data.apiKey, data.totalRounds, socket.id, data.language, data.topic);
                 socket.join(room.code);
                 const roomState = gameManager.getRoomState(room);
                 callback({ success: true, roomState, playerId: player.id });
@@ -118,29 +118,6 @@ export function registerSocketHandlers(io: Server) {
             } catch (err) {
                 console.error('[submit-answer] Error:', err);
                 callback({ success: false, error: 'Failed to submit answer' });
-            }
-        });
-
-        // --- START VOTING ---
-        socket.on('start-voting', (data: { code: string }, callback) => {
-            try {
-                const success = gameManager.startVoting(data.code);
-                if (!success) {
-                    callback({ success: false, error: 'Cannot start voting' });
-                    return;
-                }
-
-                const room = gameManager.getRoom(data.code)!;
-                const roomState = gameManager.getRoomState(room);
-                callback({ success: true });
-
-                io.to(data.code).emit('phase-change', {
-                    phase: 'voting',
-                    roomState,
-                });
-            } catch (err) {
-                console.error('[start-voting] Error:', err);
-                callback({ success: false, error: 'Failed to start voting' });
             }
         });
 

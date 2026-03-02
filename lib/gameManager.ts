@@ -14,7 +14,7 @@ function generateRoomCode(): string {
 export class GameManager {
     private rooms: Map<string, Room> = new Map();
 
-    createRoom(hostName: string, apiKey: string, totalRounds: number, socketId: string): { room: Room; player: Player } {
+    createRoom(hostName: string, apiKey: string, totalRounds: number, socketId: string, language: string = 'English', topic: string = ''): { room: Room; player: Player } {
         let code = generateRoomCode();
         while (this.rooms.has(code)) {
             code = generateRoomCode();
@@ -38,6 +38,9 @@ export class GameManager {
             rounds: [],
             apiKey,
             hostId: playerId,
+            language,
+            topic,
+            pastQuestions: [],
         };
 
         this.rooms.set(code, room);
@@ -112,8 +115,11 @@ export class GameManager {
         const playerIds = Array.from(room.players.keys());
         const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
-        // Generate questions via LLM
-        const questions = await generateQuestions(room.apiKey);
+        // Generate questions via LLM (pass language, topic, pastQuestions for dedup)
+        const questions = await generateQuestions(room.apiKey, room.language, room.topic, room.pastQuestions);
+
+        // Track this question to avoid repeats in future rounds
+        room.pastQuestions.push(questions.realQuestion);
 
         const roundData: RoundData = {
             roundNumber: room.currentRound,
@@ -169,16 +175,9 @@ export class GameManager {
         return entries;
     }
 
-    startVoting(code: string): boolean {
-        const room = this.rooms.get(code);
-        if (!room || room.phase !== 'reveal') return false;
-        room.phase = 'voting';
-        return true;
-    }
-
     submitVote(code: string, voterId: string, suspectId: string): { allVoted: boolean; room: Room } | null {
         const room = this.rooms.get(code);
-        if (!room || room.phase !== 'voting') return null;
+        if (!room || room.phase !== 'reveal') return null;
 
         const currentRound = room.rounds[room.rounds.length - 1];
         if (!currentRound) return null;
@@ -211,17 +210,22 @@ export class GameManager {
             if (voter) voteCounts[suspectId].push(voter.name);
         }
 
-        // Find who got the most votes
+        // Find who got the most votes (tie = imposter wins)
         let maxVotes = 0;
         let mostVotedId = '';
+        let isTie = false;
         for (const [suspectId, voters] of Object.entries(voteCounts)) {
             if (voters.length > maxVotes) {
                 maxVotes = voters.length;
                 mostVotedId = suspectId;
+                isTie = false;
+            } else if (voters.length === maxVotes) {
+                isTie = true;
             }
         }
 
-        const imposterCaught = mostVotedId === currentRound.imposterId;
+        // If there's a tie, the imposter is NOT caught (imposter wins)
+        const imposterCaught = !isTie && mostVotedId === currentRound.imposterId;
         const imposter = room.players.get(currentRound.imposterId);
         const scoreChanges: Record<string, number> = {};
 
@@ -278,6 +282,7 @@ export class GameManager {
         room.phase = 'lobby';
         room.currentRound = 0;
         room.rounds = [];
+        room.pastQuestions = [];
         for (const player of room.players.values()) {
             player.score = 0;
         }

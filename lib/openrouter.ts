@@ -2,28 +2,48 @@ import { QuestionPair } from './types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const SYSTEM_PROMPT = `You are a question generator for a party game called "Guess the Liar". 
+function buildSystemPrompt(language: string, topic: string): string {
+    const topicInstruction = topic
+        ? `- Questions MUST be related to the topic: "${topic}"\n`
+        : '';
+
+    const languageInstruction = language && language !== 'English'
+        ? `- All questions MUST be written in ${language}\n`
+        : '';
+
+    return `You are a question generator for a party game called "Guess the Liar". 
 Your job is to generate a pair of questions: one "real" question and one "imposter" question.
 
 Rules:
-- Both questions should be on the SAME topic/theme
-- The real question should be specific and clear
-- The imposter question should be subtly different — same topic area but asking about something slightly different
-- The difference should be enough that answers would be noticeably different, but not so obvious that the topic itself changes
+- Both questions should be on the SAME topic/theme so the answers fall in the same category
+- The real question and imposter question should produce STARKLY DIFFERENT answers, even though the answers are in the same category
+- For example: "Name a good anime" vs "Name a bad anime" — both answers are anime titles, but one is loved and the other is hated
+- Another example: "What's the best country to visit?" vs "What's the worst country to visit?" — both name countries but with opposite sentiment
+- Another example: "Name an expensive car brand" vs "Name a cheap car brand" — both are car brands but opposite ends
+- The key is: answers are in the same category, but the DIFFERENCE between the imposter's answer and others' answers should be noticeable to an observant player
 - Questions should be fun, interesting, and suitable for a party game
 - Questions should be open-ended (not yes/no) so players need to write a short answer
 - Keep questions concise (1-2 sentences max)
-
-Examples of good pairs:
-- Real: "What's your favorite pizza topping?" / Imposter: "What's your least favorite pizza topping?"
-- Real: "If you could visit any country, where would you go?" / Imposter: "If you could live in any country permanently, where would you go?"
-- Real: "What's the most overrated movie of all time?" / Imposter: "What's the most underrated movie of all time?"
-
+${topicInstruction}${languageInstruction}
 Respond ONLY with valid JSON in this exact format:
 {"realQuestion": "...", "imposterQuestion": "..."}`;
+}
 
-export async function generateQuestions(apiKey: string): Promise<QuestionPair> {
+export async function generateQuestions(
+    apiKey: string,
+    language: string = 'English',
+    topic: string = '',
+    pastQuestions: string[] = [],
+): Promise<QuestionPair> {
     try {
+        const systemPrompt = buildSystemPrompt(language, topic);
+
+        // Build user message with past questions to avoid
+        let userMessage = 'Generate a new question pair for the game. Be creative and pick a fun topic!';
+        if (pastQuestions.length > 0) {
+            userMessage += `\n\nIMPORTANT: Do NOT generate questions similar to these previously used ones:\n${pastQuestions.map((q, i) => `${i + 1}. "${q}"`).join('\n')}\n\nMake sure the new question is on a DIFFERENT topic or angle.`;
+        }
+
         const response = await fetch(OPENROUTER_API_URL, {
             method: 'POST',
             headers: {
@@ -35,8 +55,8 @@ export async function generateQuestions(apiKey: string): Promise<QuestionPair> {
             body: JSON.stringify({
                 model: 'google/gemini-2.0-flash-001',
                 messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
-                    { role: 'user', content: 'Generate a new question pair for the game. Be creative and pick a fun topic!' },
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage },
                 ],
                 temperature: 1.0,
                 max_tokens: 300,
@@ -77,28 +97,28 @@ export async function generateQuestions(apiKey: string): Promise<QuestionPair> {
 function getFallbackQuestions(): QuestionPair {
     const fallbacks: QuestionPair[] = [
         {
-            realQuestion: "What's your favorite childhood cartoon?",
-            imposterQuestion: "What's a childhood cartoon you never liked?",
+            realQuestion: "Name a movie everyone loves",
+            imposterQuestion: "Name a movie everyone hates",
         },
         {
-            realQuestion: "If you could have dinner with any historical figure, who would it be?",
-            imposterQuestion: "If you could have dinner with any fictional character, who would it be?",
+            realQuestion: "What's the best food to eat on a cold day?",
+            imposterQuestion: "What's the best food to eat on a hot day?",
         },
         {
-            realQuestion: "What's the best vacation you've ever been on?",
-            imposterQuestion: "What's the worst vacation you've ever been on?",
+            realQuestion: "Name an animal that makes a great pet",
+            imposterQuestion: "Name an animal that would make a terrible pet",
         },
         {
-            realQuestion: "What superpower would you want to have?",
-            imposterQuestion: "What superpower would be the most useless?",
+            realQuestion: "What's a skill that's easy to learn?",
+            imposterQuestion: "What's a skill that's extremely hard to learn?",
         },
         {
-            realQuestion: "What's a hobby you've always wanted to try?",
-            imposterQuestion: "What's a hobby you tried and gave up on?",
+            realQuestion: "Name a song that always makes you happy",
+            imposterQuestion: "Name a song that always makes you sad",
         },
         {
-            realQuestion: "What's the best gift you've ever received?",
-            imposterQuestion: "What's the worst gift you've ever received?",
+            realQuestion: "What's a cheap hobby anyone can start?",
+            imposterQuestion: "What's an expensive hobby only rich people do?",
         },
     ];
 

@@ -9,7 +9,6 @@ export type GamePhaseState =
     | { phase: 'lobby'; roomState: RoomState }
     | { phase: 'answering'; roomState: RoomState; question: string; roundNumber: number }
     | { phase: 'reveal'; roomState: RoomState; answers: AnswerEntry[]; realQuestion: string }
-    | { phase: 'voting'; roomState: RoomState }
     | { phase: 'vote-results'; roomState: RoomState; voteResult: VoteResultData }
     | { phase: 'finished'; roomState: RoomState; leaderboard: LeaderboardEntry[] };
 
@@ -68,12 +67,6 @@ export function useSocket() {
                         answers: data.answers,
                         realQuestion: data.realQuestion,
                     });
-                    break;
-                case 'voting':
-                    setGameState({
-                        phase: 'voting',
-                        roomState: data.roomState,
-                    });
                     setVoteProgress({ voted: 0, total: data.roomState.players.length });
                     break;
                 case 'vote-results':
@@ -128,10 +121,10 @@ export function useSocket() {
         });
     }, []);
 
-    const createRoom = useCallback(async (hostName: string, apiKey: string, totalRounds: number) => {
+    const createRoom = useCallback(async (hostName: string, apiKey: string, totalRounds: number, language: string = 'English', topic: string = '') => {
         try {
             setError('');
-            const response = await emit('create-room', { hostName, apiKey, totalRounds });
+            const response = await emit('create-room', { hostName, apiKey, totalRounds, language, topic });
             setPlayerId(response.playerId);
             setGameState({ phase: 'lobby', roomState: response.roomState });
             return response;
@@ -174,15 +167,7 @@ export function useSocket() {
         }
     }, [emit, playerId]);
 
-    const startVoting = useCallback(async (code: string) => {
-        try {
-            setError('');
-            await emit('start-voting', { code });
-        } catch (err: any) {
-            setError(err.message);
-            throw err;
-        }
-    }, [emit]);
+
 
     const submitVote = useCallback(async (code: string, suspectId: string) => {
         try {
@@ -226,7 +211,6 @@ export function useSocket() {
         joinRoom,
         startGame,
         submitAnswer,
-        startVoting,
         submitVote,
         nextRound,
         playAgain,

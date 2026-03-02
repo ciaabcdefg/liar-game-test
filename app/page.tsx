@@ -5,7 +5,6 @@ import { useSocket, GamePhaseState } from '@/hooks/useSocket';
 import Lobby from '@/components/Lobby';
 import AnswerPhase from '@/components/AnswerPhase';
 import RevealPhase from '@/components/RevealPhase';
-import VotingPhase from '@/components/VotingPhase';
 import VoteResults from '@/components/VoteResults';
 import GameOver from '@/components/GameOver';
 
@@ -22,7 +21,6 @@ export default function Home() {
     joinRoom,
     startGame,
     submitAnswer,
-    startVoting,
     submitVote,
     nextRound,
     playAgain,
@@ -33,6 +31,8 @@ export default function Home() {
   const [name, setName] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [rounds, setRounds] = useState(3);
+  const [language, setLanguage] = useState('English');
+  const [topic, setTopic] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +41,7 @@ export default function Home() {
     setLoading(true);
     setError('');
     try {
-      await createRoom(name.trim(), apiKey.trim(), rounds);
+      await createRoom(name.trim(), apiKey.trim(), rounds, language, topic.trim());
     } catch {
       // error is set by hook
     }
@@ -103,13 +103,6 @@ export default function Home() {
           <RevealPhase
             realQuestion={gameState.realQuestion}
             answers={gameState.answers}
-            isHost={isHost}
-            onStartVoting={() => startVoting(roomCode_)}
-          />
-        )}
-
-        {gameState.phase === 'voting' && (
-          <VotingPhase
             players={gameState.roomState.players}
             playerId={playerId}
             voteProgress={voteProgress}
@@ -220,6 +213,36 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="form-group">
+              <label>Language</label>
+              <select
+                className="form-input form-select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                {[
+                  'English', 'Thai', 'Japanese', 'Korean', 'Chinese',
+                  'Spanish', 'French', 'German', 'Portuguese', 'Italian',
+                  'Russian', 'Arabic', 'Hindi', 'Indonesian', 'Vietnamese',
+                ].map((lang) => (
+                  <option key={lang} value={lang}>{lang}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Topic <span className="form-hint-inline">(optional)</span></label>
+              <input
+                type="text"
+                className="form-input"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g. anime, food, movies, travel..."
+                maxLength={50}
+              />
+              <span className="form-hint">Leave empty for random topics</span>
             </div>
 
             {error && <p className="form-error">{error}</p>}

@@ -34,7 +34,12 @@ export async function generateQuestions(
     language: string = 'English',
     topic: string = '',
     pastQuestions: string[] = [],
+    useMock: boolean = false,
 ): Promise<QuestionPair> {
+    if (useMock) {
+        return getFallbackQuestions();
+    }
+
     try {
         const systemPrompt = buildSystemPrompt(language, topic);
 

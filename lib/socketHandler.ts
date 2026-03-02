@@ -8,9 +8,9 @@ export function registerSocketHandlers(io: Server) {
         console.log(`[Socket] Connected: ${socket.id}`);
 
         // --- CREATE ROOM ---
-        socket.on('create-room', async (data: { hostName: string; apiKey: string; totalRounds: number; language: string; topic: string }, callback) => {
+        socket.on('create-room', async (data: { hostName: string; apiKey: string; totalRounds: number; language: string; topic: string; useMock?: boolean }, callback) => {
             try {
-                const { room, player } = gameManager.createRoom(data.hostName, data.apiKey, data.totalRounds, socket.id, data.language, data.topic);
+                const { room, player } = gameManager.createRoom(data.hostName, data.apiKey, data.totalRounds, socket.id, data.language, data.topic, data.useMock ?? false);
                 socket.join(room.code);
                 const roomState = gameManager.getRoomState(room);
                 callback({ success: true, roomState, playerId: player.id });
@@ -165,12 +165,14 @@ export function registerSocketHandlers(io: Server) {
                 if (status === 'finished') {
                     const room = gameManager.getRoom(data.code)!;
                     const leaderboard = gameManager.getLeaderboard(data.code);
+                    const roundSummaries = gameManager.getRoundSummaries(data.code);
                     const roomState = gameManager.getRoomState(room);
 
                     io.to(data.code).emit('phase-change', {
                         phase: 'finished',
                         roomState,
                         leaderboard,
+                        roundSummaries,
                     });
                     callback({ success: true });
                     return;

@@ -29,6 +29,7 @@ export interface Room {
   language: string;
   topic: string;
   pastQuestions: string[]; // track questions to avoid repeats
+  useMock: boolean;
 }
 
 // Data sent to clients (serializable)
@@ -64,6 +65,8 @@ export interface VoteResultData {
   imposterName: string;
   imposterCaught: boolean;
   scoreChanges: Record<string, number>; // playerId → points gained
+  realQuestion: string;
+  imposterQuestion: string;
 }
 
 export interface LeaderboardEntry {
@@ -71,4 +74,20 @@ export interface LeaderboardEntry {
   name: string;
   score: number;
   playerId: string;
+}
+
+export interface RoundSummaryAnswer {
+  playerId: string;
+  playerName: string;
+  answer: string;
+  isImposter: boolean;
+}
+
+export interface RoundSummary {
+  roundNumber: number;
+  realQuestion: string;
+  imposterQuestion: string;
+  imposterId: string;
+  imposterName: string;
+  answers: RoundSummaryAnswer[];
 }

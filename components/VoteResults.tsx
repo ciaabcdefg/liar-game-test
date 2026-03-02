@@ -40,6 +40,18 @@ export default function VoteResults({
                 </p>
             </div>
 
+            {/* Question reveal */}
+            <div className="question-reveal animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                <div className="question-reveal-card real">
+                    <span className="question-reveal-label">👥 Real Question</span>
+                    <p className="question-reveal-text">{voteResult.realQuestion}</p>
+                </div>
+                <div className="question-reveal-card imposter">
+                    <span className="question-reveal-label">🎭 Imposter Question</span>
+                    <p className="question-reveal-text">{voteResult.imposterQuestion}</p>
+                </div>
+            </div>
+
             {/* Vote breakdown */}
             <div className="vote-breakdown animate-fade-in" style={{ animationDelay: '0.5s' }}>
                 <h3 className="section-title">Vote Breakdown</h3>

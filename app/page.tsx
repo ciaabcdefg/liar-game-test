@@ -35,13 +35,14 @@ export default function Home() {
   const [topic, setTopic] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [useMock, setUseMock] = useState(false);
 
   const handleHost = async () => {
-    if (!name.trim() || !apiKey.trim()) return;
+    if (!name.trim() || (!apiKey.trim() && !useMock)) return;
     setLoading(true);
     setError('');
     try {
-      await createRoom(name.trim(), apiKey.trim(), rounds, language, topic.trim());
+      await createRoom(name.trim(), apiKey.trim(), rounds, language, topic.trim(), useMock);
     } catch {
       // error is set by hook
     }
@@ -125,6 +126,7 @@ export default function Home() {
         {gameState.phase === 'finished' && (
           <GameOver
             leaderboard={gameState.leaderboard}
+            roundSummaries={gameState.roundSummaries}
             playerId={playerId}
             isHost={isHost}
             onPlayAgain={() => playAgain(roomCode_)}
@@ -245,12 +247,26 @@ export default function Home() {
               <span className="form-hint">Leave empty for random topics</span>
             </div>
 
+            {process.env.NODE_ENV === 'development' && (
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useMock}
+                    onChange={(e) => setUseMock(e.target.checked)}
+                    className="form-checkbox"
+                  />
+                  🧪 Use mock questions (no API key needed)
+                </label>
+              </div>
+            )}
+
             {error && <p className="form-error">{error}</p>}
 
             <button
               className="btn btn-primary btn-large"
               onClick={handleHost}
-              disabled={!name.trim() || !apiKey.trim() || loading}
+              disabled={!name.trim() || (!apiKey.trim() && !useMock) || loading}
             >
               {loading ? 'Creating Room...' : '🎭 Create Room'}
             </button>

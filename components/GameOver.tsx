@@ -1,9 +1,11 @@
 'use client';
 
-import { LeaderboardEntry } from '@/lib/types';
+import { useState } from 'react';
+import { LeaderboardEntry, RoundSummary } from '@/lib/types';
 
 interface GameOverProps {
     leaderboard: LeaderboardEntry[];
+    roundSummaries: RoundSummary[];
     playerId: string;
     isHost: boolean;
     onPlayAgain: () => void;
@@ -11,7 +13,11 @@ interface GameOverProps {
 
 const rankEmoji = ['🥇', '🥈', '🥉'];
 
-export default function GameOver({ leaderboard, playerId, isHost, onPlayAgain }: GameOverProps) {
+export default function GameOver({ leaderboard, roundSummaries, playerId, isHost, onPlayAgain }: GameOverProps) {
+    const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
+    const totalRounds = roundSummaries.length;
+    const round = roundSummaries[currentRoundIndex];
+
     return (
         <div className="phase-container gameover-container">
             <div className="confetti-container">
@@ -67,6 +73,72 @@ export default function GameOver({ leaderboard, playerId, isHost, onPlayAgain }:
                     </div>
                 ))}
             </div>
+
+            {/* Round Summaries — paginated */}
+            {totalRounds > 0 && round && (
+                <div className="round-summaries animate-fade-in" style={{ animationDelay: `${0.3 + leaderboard.length * 0.15 + 0.3}s` }}>
+                    <h2 className="section-title">📋 Round-by-Round Summary</h2>
+
+                    <div className="round-summary-card" key={round.roundNumber}>
+                        <div className="round-summary-header">
+                            <span className="round-summary-badge">Round {round.roundNumber}</span>
+                            <span className="round-summary-imposter">
+                                🎭 Imposter: <strong>{round.imposterName}</strong>
+                            </span>
+                        </div>
+
+                        <div className="round-summary-questions">
+                            <div className="question-reveal-card real">
+                                <span className="question-reveal-label">👥 Real Question</span>
+                                <p className="question-reveal-text">{round.realQuestion}</p>
+                            </div>
+                            <div className="question-reveal-card imposter">
+                                <span className="question-reveal-label">🎭 Imposter Question</span>
+                                <p className="question-reveal-text">{round.imposterQuestion}</p>
+                            </div>
+                        </div>
+
+                        <div className="round-summary-answers">
+                            {round.answers.map((a) => (
+                                <div
+                                    key={a.playerId}
+                                    className={`round-summary-answer ${a.isImposter ? 'imposter-highlight' : ''}`}
+                                >
+                                    <div className="round-summary-answer-player">
+                                        <div className={`player-avatar small ${a.isImposter ? 'imposter' : ''}`}>
+                                            {a.playerName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span>{a.playerName}</span>
+                                        {a.isImposter && <span className="imposter-badge">IMPOSTER</span>}
+                                    </div>
+                                    <p className="round-summary-answer-text">&ldquo;{a.answer}&rdquo;</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="round-nav">
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => setCurrentRoundIndex((i) => i - 1)}
+                            disabled={currentRoundIndex === 0}
+                        >
+                            ← Back
+                        </button>
+                        <span className="round-nav-indicator">
+                            {currentRoundIndex + 1} / {totalRounds}
+                        </span>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => setCurrentRoundIndex((i) => i + 1)}
+                            disabled={currentRoundIndex === totalRounds - 1}
+                        >
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="gameover-actions animate-fade-in" style={{ animationDelay: `${0.3 + leaderboard.length * 0.15 + 0.5}s` }}>
                 {isHost ? (

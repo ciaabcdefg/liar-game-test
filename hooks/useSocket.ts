@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { RoomState, AnswerEntry, VoteResultData, LeaderboardEntry } from '@/lib/types';
+import { RoomState, AnswerEntry, VoteResultData, LeaderboardEntry, RoundSummary } from '@/lib/types';
 
 export type GamePhaseState =
     | { phase: 'idle' }
@@ -10,7 +10,7 @@ export type GamePhaseState =
     | { phase: 'answering'; roomState: RoomState; question: string; roundNumber: number }
     | { phase: 'reveal'; roomState: RoomState; answers: AnswerEntry[]; realQuestion: string }
     | { phase: 'vote-results'; roomState: RoomState; voteResult: VoteResultData }
-    | { phase: 'finished'; roomState: RoomState; leaderboard: LeaderboardEntry[] };
+    | { phase: 'finished'; roomState: RoomState; leaderboard: LeaderboardEntry[]; roundSummaries: RoundSummary[] };
 
 export function useSocket() {
     const socketRef = useRef<Socket | null>(null);
@@ -81,6 +81,7 @@ export function useSocket() {
                         phase: 'finished',
                         roomState: data.roomState,
                         leaderboard: data.leaderboard,
+                        roundSummaries: data.roundSummaries || [],
                     });
                     break;
             }
@@ -121,10 +122,10 @@ export function useSocket() {
         });
     }, []);
 
-    const createRoom = useCallback(async (hostName: string, apiKey: string, totalRounds: number, language: string = 'English', topic: string = '') => {
+    const createRoom = useCallback(async (hostName: string, apiKey: string, totalRounds: number, language: string = 'English', topic: string = '', useMock: boolean = false) => {
         try {
             setError('');
-            const response = await emit('create-room', { hostName, apiKey, totalRounds, language, topic });
+            const response = await emit('create-room', { hostName, apiKey, totalRounds, language, topic, useMock });
             setPlayerId(response.playerId);
             setGameState({ phase: 'lobby', roomState: response.roomState });
             return response;

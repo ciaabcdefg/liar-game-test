@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Room, Player, RoundData, PlayerInfo, RoomState, AnswerEntry, VoteResultData, LeaderboardEntry } from './types';
+import { Room, Player, RoundData, PlayerInfo, RoomState, AnswerEntry, VoteResultData, LeaderboardEntry, RoundSummary } from './types';
 import { generateQuestions } from './openrouter';
 
 function generateRoomCode(): string {
@@ -14,7 +14,7 @@ function generateRoomCode(): string {
 export class GameManager {
     private rooms: Map<string, Room> = new Map();
 
-    createRoom(hostName: string, apiKey: string, totalRounds: number, socketId: string, language: string = 'English', topic: string = ''): { room: Room; player: Player } {
+    createRoom(hostName: string, apiKey: string, totalRounds: number, socketId: string, language: string = 'English', topic: string = '', useMock: boolean = false): { room: Room; player: Player } {
         let code = generateRoomCode();
         while (this.rooms.has(code)) {
             code = generateRoomCode();
@@ -41,6 +41,7 @@ export class GameManager {
             language,
             topic,
             pastQuestions: [],
+            useMock,
         };
 
         this.rooms.set(code, room);
@@ -116,7 +117,7 @@ export class GameManager {
         const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
         // Generate questions via LLM (pass language, topic, pastQuestions for dedup)
-        const questions = await generateQuestions(room.apiKey, room.language, room.topic, room.pastQuestions);
+        const questions = await generateQuestions(room.apiKey, room.language, room.topic, room.pastQuestions, room.useMock);
 
         // Track this question to avoid repeats in future rounds
         room.pastQuestions.push(questions.realQuestion);
@@ -260,6 +261,8 @@ export class GameManager {
             imposterName: imposter?.name || 'Unknown',
             imposterCaught,
             scoreChanges,
+            realQuestion: currentRound.realQuestion,
+            imposterQuestion: currentRound.imposterQuestion,
         };
     }
 
@@ -304,6 +307,33 @@ export class GameManager {
             }));
 
         return entries;
+    }
+
+    getRoundSummaries(code: string): RoundSummary[] {
+        const room = this.rooms.get(code);
+        if (!room) return [];
+
+        return room.rounds.map((round) => {
+            const imposter = room.players.get(round.imposterId);
+            const answers = Array.from(round.answers.entries()).map(([playerId, answer]) => {
+                const player = room.players.get(playerId);
+                return {
+                    playerId,
+                    playerName: player?.name || 'Unknown',
+                    answer,
+                    isImposter: playerId === round.imposterId,
+                };
+            });
+
+            return {
+                roundNumber: round.roundNumber,
+                realQuestion: round.realQuestion,
+                imposterQuestion: round.imposterQuestion,
+                imposterId: round.imposterId,
+                imposterName: imposter?.name || 'Unknown',
+                answers,
+            };
+        });
     }
 
     // Serialize room state for clients

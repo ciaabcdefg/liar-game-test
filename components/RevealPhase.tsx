@@ -23,8 +23,6 @@ export default function RevealPhase({ realQuestion, answers, players, playerId, 
         }
     };
 
-    const otherPlayers = players.filter((p) => p.id !== playerId);
-
     return (
         <div className="phase-container">
             <div className="reveal-header animate-slide-up">
@@ -35,49 +33,40 @@ export default function RevealPhase({ realQuestion, answers, players, playerId, 
             </div>
 
             <div className="answers-grid">
-                {answers.map((entry, i) => (
-                    <div
-                        key={entry.playerId}
-                        className="answer-card animate-slide-up"
-                        style={{ animationDelay: `${0.2 + i * 0.15}s` }}
-                    >
-                        <div className="answer-card-header">
-                            <div className="player-avatar small">
-                                {entry.playerName.charAt(0).toUpperCase()}
+                {answers.map((entry, i) => {
+                    const isOtherPlayer = entry.playerId !== playerId;
+                    const isSelected = selectedId === entry.playerId;
+                    return (
+                        <button
+                            key={entry.playerId}
+                            className={`answer-card animate-slide-up ${isOtherPlayer && !voted ? 'votable' : ''} ${isSelected ? 'selected' : ''}`}
+                            style={{ animationDelay: `${0.2 + i * 0.15}s` }}
+                            onClick={() => {
+                                if (isOtherPlayer && !voted) {
+                                    setSelectedId(entry.playerId);
+                                }
+                            }}
+                            disabled={!isOtherPlayer || voted}
+                        >
+                            <div className="answer-card-header">
+                                <div className="player-avatar small">
+                                    {entry.playerName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="answer-player-name">{entry.playerName}</span>
+                                {entry.playerId === playerId && <span className="you-badge">YOU</span>}
+                                {isSelected && <span className="vote-check">✓</span>}
                             </div>
-                            <span className="answer-player-name">{entry.playerName}</span>
-                        </div>
-                        <p className="answer-text">&ldquo;{entry.answer}&rdquo;</p>
-                    </div>
-                ))}
+                            <p className="answer-text">&ldquo;{entry.answer}&rdquo;</p>
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Voting section — inline with answers visible above */}
+            {/* Vote action */}
             <div className="vote-section animate-fade-in" style={{ animationDelay: `${0.2 + answers.length * 0.15 + 0.3}s` }}>
-                <div className="vote-divider">
-                    <span className="vote-divider-text">🗳️ Vote for the Imposter</span>
-                </div>
-                <p className="hint-text">Who do you think had a different question?</p>
-
                 {!voted ? (
-                    <>
-                        <div className="vote-grid">
-                            {otherPlayers.map((player, i) => (
-                                <button
-                                    key={player.id}
-                                    className={`vote-card animate-slide-up ${selectedId === player.id ? 'selected' : ''}`}
-                                    style={{ animationDelay: `${0.1 + i * 0.1}s` }}
-                                    onClick={() => setSelectedId(player.id)}
-                                >
-                                    <div className="player-avatar large">
-                                        {player.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <span className="vote-player-name">{player.name}</span>
-                                    {selectedId === player.id && <span className="vote-check">✓</span>}
-                                </button>
-                            ))}
-                        </div>
-
+                    <div className='flex flex-col gap-2'>
+                        <p className="hint-text">🗳️ Tap a player&apos;s card to vote for who you think is the imposter</p>
                         <button
                             className="btn btn-danger btn-large"
                             onClick={handleVote}
@@ -85,7 +74,7 @@ export default function RevealPhase({ realQuestion, answers, players, playerId, 
                         >
                             🎯 Lock In Vote
                         </button>
-                    </>
+                    </div>
                 ) : (
                     <div className="waiting-card animate-fade-in">
                         <div className="spinner" />

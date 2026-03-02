@@ -1,65 +1,281 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { useSocket, GamePhaseState } from '@/hooks/useSocket';
+import Lobby from '@/components/Lobby';
+import AnswerPhase from '@/components/AnswerPhase';
+import RevealPhase from '@/components/RevealPhase';
+import VotingPhase from '@/components/VotingPhase';
+import VoteResults from '@/components/VoteResults';
+import GameOver from '@/components/GameOver';
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+  const {
+    connected,
+    playerId,
+    gameState,
+    answerProgress,
+    voteProgress,
+    error,
+    notification,
+    createRoom,
+    joinRoom,
+    startGame,
+    submitAnswer,
+    startVoting,
+    submitVote,
+    nextRound,
+    playAgain,
+    setError,
+  } = useSocket();
+
+  const [mode, setMode] = useState<'home' | 'host' | 'join'>('home');
+  const [name, setName] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [rounds, setRounds] = useState(3);
+  const [roomCode, setRoomCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleHost = async () => {
+    if (!name.trim() || !apiKey.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await createRoom(name.trim(), apiKey.trim(), rounds);
+    } catch {
+      // error is set by hook
+    }
+    setLoading(false);
+  };
+
+  const handleJoin = async () => {
+    if (!name.trim() || !roomCode.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await joinRoom(roomCode.trim(), name.trim());
+    } catch {
+      // error is set by hook
+    }
+    setLoading(false);
+  };
+
+  const isHost = (() => {
+    if (gameState.phase === 'idle') return false;
+    return gameState.roomState.players.find((p) => p.id === playerId)?.isHost ?? false;
+  })();
+
+  const roomCode_ = gameState.phase !== 'idle' ? gameState.roomState.code : '';
+
+  // Render the appropriate phase
+  if (gameState.phase !== 'idle') {
+    return (
+      <main className="game-main">
+        {notification && (
+          <div className="notification animate-slide-up">{notification}</div>
+        )}
+        {error && (
+          <div className="error-banner animate-slide-up">
+            {error}
+            <button className="error-close" onClick={() => setError('')}>✕</button>
+          </div>
+        )}
+
+        {gameState.phase === 'lobby' && (
+          <Lobby
+            roomState={gameState.roomState}
+            playerId={playerId}
+            onStartGame={() => startGame(roomCode_)}
+          />
+        )}
+
+        {gameState.phase === 'answering' && (
+          <AnswerPhase
+            question={gameState.question}
+            roundNumber={gameState.roundNumber}
+            totalRounds={gameState.roomState.totalRounds}
+            answerProgress={answerProgress}
+            onSubmit={(answer) => submitAnswer(roomCode_, answer)}
+          />
+        )}
+
+        {gameState.phase === 'reveal' && (
+          <RevealPhase
+            realQuestion={gameState.realQuestion}
+            answers={gameState.answers}
+            isHost={isHost}
+            onStartVoting={() => startVoting(roomCode_)}
+          />
+        )}
+
+        {gameState.phase === 'voting' && (
+          <VotingPhase
+            players={gameState.roomState.players}
+            playerId={playerId}
+            voteProgress={voteProgress}
+            onVote={(suspectId) => submitVote(roomCode_, suspectId)}
+          />
+        )}
+
+        {gameState.phase === 'vote-results' && (
+          <VoteResults
+            voteResult={gameState.voteResult}
+            players={gameState.roomState.players}
+            playerId={playerId}
+            isHost={isHost}
+            currentRound={gameState.roomState.currentRound}
+            totalRounds={gameState.roomState.totalRounds}
+            onNextRound={() => nextRound(roomCode_)}
+          />
+        )}
+
+        {gameState.phase === 'finished' && (
+          <GameOver
+            leaderboard={gameState.leaderboard}
+            playerId={playerId}
+            isHost={isHost}
+            onPlayAgain={() => playAgain(roomCode_)}
+          />
+        )}
       </main>
-    </div>
+    );
+  }
+
+  // Home screen
+  return (
+    <main className="home-main">
+      <div className="home-bg-effects">
+        <div className="bg-blob blob-1" />
+        <div className="bg-blob blob-2" />
+        <div className="bg-blob blob-3" />
+      </div>
+
+      <div className="home-content">
+        <div className="title-section animate-slide-up">
+          <h1 className="game-title">
+            <span className="title-icon">🎭</span>
+            Guess the Liar
+          </h1>
+          <p className="game-tagline">One question. One liar. Can you spot the imposter?</p>
+        </div>
+
+        {!connected && (
+          <div className="connecting-card animate-fade-in">
+            <div className="spinner" />
+            <p>Connecting to server...</p>
+          </div>
+        )}
+
+        {connected && mode === 'home' && (
+          <div className="home-actions animate-fade-in">
+            <button className="btn btn-primary btn-large" onClick={() => setMode('host')}>
+              🏠 Host a Game
+            </button>
+            <button className="btn btn-secondary btn-large" onClick={() => setMode('join')}>
+              🚪 Join a Game
+            </button>
+          </div>
+        )}
+
+        {connected && mode === 'host' && (
+          <div className="form-card animate-slide-up">
+            <button className="back-btn" onClick={() => setMode('home')}>← Back</button>
+            <h2 className="form-title">Host a Game</h2>
+
+            <div className="form-group">
+              <label>Your Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
+                maxLength={20}
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>OpenRouter API Key</label>
+              <input
+                type="password"
+                className="form-input"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-or-..."
+              />
+              <span className="form-hint">Used to generate questions with AI</span>
+            </div>
+
+            <div className="form-group">
+              <label>Number of Rounds</label>
+              <div className="round-selector">
+                {[3, 5, 7, 10].map((n) => (
+                  <button
+                    key={n}
+                    className={`round-btn ${rounds === n ? 'active' : ''}`}
+                    onClick={() => setRounds(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && <p className="form-error">{error}</p>}
+
+            <button
+              className="btn btn-primary btn-large"
+              onClick={handleHost}
+              disabled={!name.trim() || !apiKey.trim() || loading}
+            >
+              {loading ? 'Creating Room...' : '🎭 Create Room'}
+            </button>
+          </div>
+        )}
+
+        {connected && mode === 'join' && (
+          <div className="form-card animate-slide-up">
+            <button className="back-btn" onClick={() => setMode('home')}>← Back</button>
+            <h2 className="form-title">Join a Game</h2>
+
+            <div className="form-group">
+              <label>Your Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
+                maxLength={20}
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Room Code</label>
+              <input
+                type="text"
+                className="form-input room-code-input"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                placeholder="ABCDE"
+                maxLength={5}
+              />
+            </div>
+
+            {error && <p className="form-error">{error}</p>}
+
+            <button
+              className="btn btn-primary btn-large"
+              onClick={handleJoin}
+              disabled={!name.trim() || !roomCode.trim() || loading}
+            >
+              {loading ? 'Joining...' : '🚪 Join Room'}
+            </button>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
